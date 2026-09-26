@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What Changed? — {{ repo_context.repo_name }}</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #1f2328;
+    background: #f7f8fa;
+    padding: 2rem 1rem;
+  }
+  .container { max-width: 860px; margin: 0 auto; }
+
+  /* Header */
+  .header {
+    background: #1f2328;
+    color: #fff;
+    border-radius: 8px;
+    padding: 1.5rem 2rem;
+    margin-bottom: 1.5rem;
+  }
+  .header h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.25rem; }
+  .header .meta { font-size: 0.85rem; color: #adb5bd; }
+
+  /* Summary card */
+  .summary-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 1.5rem 2rem;
+    margin-bottom: 1.5rem;
+    border-left: 5px solid #ccc;
+  }
+  .summary-card.high  { border-left-color: #d93025; }
+  .summary-card.medium { border-left-color: #f59e0b; }
+  .summary-card.low   { border-left-color: #3b82d4; }
+
+  .confidence-badge {
+    display: inline-block;
+    padding: 0.2rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.75rem;
+  }
+  .badge-high   { background: #fde8e8; color: #9b1c1c; }
+  .badge-medium { background: #fef3c7; color: #92400e; }
+  .badge-low    { background: #dbeafe; color: #1e40af; }
+
+  .cause-description { font-size: 1rem; font-weight: 600; margin-bottom: 0.5rem; }
+  .cause-meta { font-size: 0.85rem; color: #57606a; }
+  .cause-meta code {
+    background: #f0f2f5;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 0.82rem;
+  }
+
+  /* Section */
+  .section {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .section h2 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #57606a;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  /* Evidence chain */
+  .evidence-list { list-style: none; }
+  .evidence-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f0f2f5;
+  }
+  .evidence-list li:last-child { border-bottom: none; }
+  .evidence-num {
+    flex-shrink: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    background: #3b82d4;
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .evidence-content { flex: 1; }
+  .evidence-signal { font-weight: 600; font-size: 0.9rem; }
+  .evidence-detail { color: #57606a; font-size: 0.85rem; }
+
+  /* Severity badge (inline) */
+  .sev {
+    display: inline-block;
+    padding: 0.1rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-left: 0.4rem;
+  }
+  .sev-high    { background: #fde8e8; color: #9b1c1c; }
+  .sev-medium  { background: #fef3c7; color: #92400e; }
+  .sev-low     { background: #d1fae5; color: #065f46; }
+  .sev-skipped { background: #f0f2f5; color: #57606a; }
+
+  /* Collapsible signal sections */
+  details { margin-bottom: 0.75rem; }
+  details summary {
+    cursor: pointer;
+    padding: 0.6rem 0.75rem;
+    background: #f7f8fa;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.88rem;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    user-select: none;
+  }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::after { content: "▼"; font-size: 0.7rem; color: #57606a; }
+  details[open] summary::after { content: "▲"; }
+  details[open] summary { border-radius: 6px 6px 0 0; border-bottom: none; }
+  .details-body {
+    border: 1px solid #e5e7eb;
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    padding: 0.75rem 1rem;
+    background: #fff;
+  }
+
+  /* Code / diff blocks */
+  pre {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    overflow-x: auto;
+    background: #f7f8fa;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    white-space: pre;
+    max-height: 400px;
+  }
+  .diff-add { color: #22863a; background: #f0fff4; display: block; }
+  .diff-del { color: #cb2431; background: #fff5f5; display: block; }
+  .diff-hdr { color: #57606a; font-weight: 600; display: block; }
+
+  /* Evidence lines (plain list) */
+  .evidence-lines {
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 0.8rem;
+    line-height: 1.6;
+    color: #1f2328;
+  }
+  .evidence-lines p { margin: 0; padding: 0.1rem 0; }
+  .evidence-lines p.add { color: #22863a; }
+  .evidence-lines p.del { color: #cb2431; }
+  .evidence-lines p.hdr { color: #57606a; font-weight: 600; }
+
+  /* Alternative causes table */
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  th, td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb; }
+  th { font-weight: 700; color: #57606a; background: #f7f8fa; }
+  tr:last-child td { border-bottom: none; }
+
+  /* Next steps */
+  .next-steps ol { padding-left: 1.25rem; }
+  .next-steps li { padding: 0.3rem 0; }
+
+  /* Bob chat footer */
+  .bob-footer {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-left: 5px solid #7c5cd8;
+    border-radius: 8px;
+    padding: 1.25rem 1.5rem;
+    margin-top: 1.5rem;
+  }
+  .bob-footer h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.5rem; }
+  .bob-footer p { font-size: 0.88rem; color: #57606a; margin-bottom: 0.5rem; }
+  .suggested-prompt {
+    background: #f7f8fa;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 0.82rem;
+    color: #1f2328;
+    white-space: pre-wrap;
+  }
+
+  /* Page footer */
+  .page-footer {
+    text-align: center;
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e5e7eb;
+    font-size: 0.78rem;
+    color: #57606a;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- ===== HEADER ===== -->
+  <div class="header">
+    <h1>🔍 What Changed? — {{ repo_context.repo_name }}</h1>
+    <div class="meta">
+      Language: <strong>{{ repo_context.detected_language }}</strong> ·
+      Framework: <strong>{{ repo_context.detected_framework }}</strong> ·
+      Range: <strong>{{ repo_context.commit_range }}</strong> ·
+      {{ repo_context.total_commits_analyzed }} commit(s) analysed ·
+      Generated: {{ generated_at }}
+    </div>
+  </div>
+
+  <!-- ===== SUMMARY CARD ===== -->
+  <div class="summary-card {{ analysis.confidence }}">
+    <span class="confidence-badge badge-{{ analysis.confidence }}">
+      {{ analysis.confidence }} confidence
+    </span>
+    <div class="cause-description">{{ analysis.most_likely_cause.description }}</div>
+    <div class="cause-meta">
+      {% if analysis.most_likely_cause.commit_sha %}
+        Commit: <code>{{ analysis.most_likely_cause.commit_sha }}</code>
+      {% endif %}
+      {% if analysis.most_likely_cause.file %}
+        · File: <code>{{ analysis.most_likely_cause.file }}</code>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ===== EVIDENCE CHAIN ===== -->
+  {% if analysis.evidence_chain %}
+  <div class="section">
+    <h2>Evidence Chain</h2>
+    <ul class="evidence-list">
+      {% for item in analysis.evidence_chain %}
+      <li>
+        <div class="evidence-num">{{ loop.index }}</div>
+        <div class="evidence-content">
+          <div class="evidence-signal">{{ item.signal }}</div>
+          <div class="evidence-detail">{{ item.detail }}</div>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <!-- ===== SIGNAL DETAIL SECTIONS ===== -->
+  <div class="section">
+    <h2>Signal Details</h2>
+    {% for signal in signals %}
+    <details {% if signal.severity == 'high' %}open{% endif %}>
+      <summary>
+        <span>{{ signal.name | upper }}
+          <span class="sev sev-{{ signal.severity }}">{{ signal.severity }}</span>
+        </span>
+        <span style="font-size:0.78rem;color:#57606a;font-weight:400;">
+          {{ signal.evidence | length }} evidence item(s)
+        </span>
+      </summary>
+      <div class="details-body">
+        {% if signal.severity == 'skipped' %}
+          <p style="color:#57606a;font-size:0.88rem;">{{ signal.evidence[0] if signal.evidence else 'No data.' }}</p>
+        {% else %}
+          <div class="evidence-lines">
+            {% for line in signal.evidence %}
+              {% if line.startswith('+') %}
+                <p class="add">{{ line }}</p>
+              {% elif line.startswith('-') %}
+                <p class="del">{{ line }}</p>
+              {% elif line.startswith('---') or line.startswith('+++') or line.startswith('@@') %}
+                <p class="hdr">{{ line }}</p>
+              {% elif line == '' %}
+                <p>&nbsp;</p>
+              {% else %}
+                <p>{{ line }}</p>
+              {% endif %}
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+
+  <!-- ===== ALTERNATIVE CAUSES ===== -->
+  {% if analysis.alternative_causes %}
+  <div class="section">
+    <h2>Alternative Causes</h2>
+    <table>
+      <thead>
+        <tr><th>Description</th><th style="width:8rem;">Confidence</th></tr>
+      </thead>
+      <tbody>
+        {% for alt in analysis.alternative_causes %}
+        <tr>
+          <td>{{ alt.description }}</td>
+          <td><span class="confidence-badge badge-{{ alt.confidence }}" style="margin:0;">{{ alt.confidence }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <!-- ===== NEXT STEPS ===== -->
+  {% if analysis.recommended_next_steps %}
+  <div class="section next-steps">
+    <h2>Recommended Next Steps</h2>
+    <ol>
+      {% for step in analysis.recommended_next_steps %}
+      <li>{{ step }}</li>
+      {% endfor %}
+    </ol>
+  </div>
+  {% endif %}
+
+  <!-- ===== BOB CHAT FOOTER ===== -->
+  <div class="bob-footer">
+    <h3>💬 Continue investigation with IBM Bob</h3>
+    <p>Paste the following prompt into Bob chat to begin an interactive deep-dive:</p>
+    <div class="suggested-prompt">I ran "What Changed?" on {{ repo_context.repo_name }}.
+The most likely cause is: {{ analysis.most_likely_cause.description }}{% if analysis.most_likely_cause.commit_sha %} (commit {{ analysis.most_likely_cause.commit_sha }}){% endif %}.
+Confidence: {{ analysis.confidence }}.
+Help me verify this finding and suggest a fix.</div>
+  </div>
+
+  <!-- ===== PAGE FOOTER ===== -->
+  <div class="page-footer">
+    Made with <strong>IBM Bob</strong> · What Changed? Hackathon Prototype
+  </div>
+
+</div>
+</body>
+</html>

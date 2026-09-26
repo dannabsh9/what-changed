@@ -1,0 +1,63 @@
+You are a senior software engineer performing a regression analysis.
+Your task: identify the most likely change that caused a previously working project to break, based on the evidence below.
+
+## Repository Context
+- Name: demo
+- Language: Python
+- Framework: Flask
+- Commit range analysed: a6b95852..HEAD
+- Total commits in range: 3
+
+## Signal: GIT [severity: high]
+Analysed 3 commit(s) in range a6b95852..HEAD
+[d5ddb015] fix: improve divide performance (BREAKING: uses integer division) — Demo Author @ 2026-09-25
+[d8d080a8] config: point to production DB server, enable DEBUG — Demo Author @ 2026-09-25
+[22aadde0] chore: bump flask from 2.3.2 to 3.0.0 — Demo Author @ 2026-09-25
+Top changed files: config.py (6 lines), app.py (5 lines), requirements.txt (2 lines)
+
+## Signal: DEPENDENCIES [severity: high]
+Changed dependency files: requirements.txt
+--- requirements.txt ---
+CHANGED: flask  ==2.3.2 -> ==3.0.0
+
+## Signal: CONFIG [severity: low]
+No configuration file changes detected.
+
+## Signal: TESTS [severity: high]
+Tests FAILED (framework: pytest, exit code: 1)
+Passed: 2  Failed: 1
+
+FAILED test_app.py::test_divide - AssertionError: Expected 2.5 but got 2
+1 failed, 2 passed in 0.04s
+
+## Signal: LOGS [severity: low]
+No log files found.
+
+## Your Task
+Based on the evidence above, respond with ONLY a valid JSON object (no markdown fences, no explanation before or after the JSON). Use this exact schema:
+
+{
+  "most_likely_cause": {
+    "description": "One or two sentence description of the most likely root cause",
+    "commit_sha": "short SHA of the most suspicious commit, or empty string if unknown",
+    "file": "most relevant changed file, or empty string if unknown"
+  },
+  "confidence": "high | medium | low",
+  "evidence_chain": [
+    {
+      "signal": "signal name",
+      "detail": "what this signal tells us"
+    }
+  ],
+  "alternative_causes": [
+    {
+      "description": "alternative explanation",
+      "confidence": "high | medium | low"
+    }
+  ],
+  "recommended_next_steps": [
+    "Specific action the developer should take"
+  ]
+}
+
+Rules: confidence is 'high' if test failures + a suspicious commit are present, 'medium' if only one strong signal exists, 'low' if evidence is inconclusive. Keep descriptions concise. List up to 3 next steps. List up to 2 alternative causes.
